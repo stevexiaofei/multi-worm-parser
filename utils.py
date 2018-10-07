@@ -10,14 +10,45 @@ import scipy.misc
 import numpy as np
 import tensorflow as tf
 from time import gmtime, strftime
-
+import configparser
 pp = pprint.PrettyPrinter()
 
 get_stddev = lambda x, k_h, k_w: 1/math.sqrt(k_w*k_h*x.get_shape()[-1])
 
 # -----------------------------
 # new added functions for pix2pix
-
+def process_config(conf_file):
+	"""
+		read configuration from files and saved to a dict
+	"""
+	params = {}
+	config = configparser.ConfigParser()
+	config.read(conf_file)
+	for section in config.sections():
+		if section == 'Global':
+			for option in config.options(section):
+				params[option] = eval(config.get(section, option))
+	return params
+def save_image(batch_image_list,path):
+	num=len(batch_image_list)
+	batchs,h,w,c=batch_image_list[0].shape
+	dtype=batch_image_list[0].dtype
+	full_image_list=[]
+	for i,it in enumerate(batch_image_list):
+		concat_v=[]
+		for j,jt in enumerate(it):
+			concat_v.append(jt)
+			if j!=batchs-1:
+				concat_v.append(np.ones((4,w,c),dtype=dtype))
+		concat_v = np.concatenate(concat_v,axis=0)
+		full_image_list.append(concat_v)
+		if i!=num-1:
+			#print(concat_v.shape[0],dtype)
+			full_image_list.append(np.ones((concat_v.shape[0],4,c),dtype=dtype))
+	full_image = np.concatenate(full_image_list,axis=1)
+	full_image = np.squeeze(full_image)
+	scipy.misc.imsave(path,full_image)
+	
 def load_data(image_path, flip=True, is_test=False):
     img_A, img_B = load_image(image_path)
     img_A, img_B = preprocess_A_and_B(img_A, img_B, flip=flip, is_test=is_test)

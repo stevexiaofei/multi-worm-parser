@@ -28,6 +28,7 @@ Color_name=['Crimson','Magenta','BlueViolet','Blue','AliceBlue',
 'OrangeRed','Maroon','White','RosyBrown']
 class data_provider():
     def __init__(self,contours,rects):
+        
         self.contours=contours
         self.rects=rects
         self.num=len(rects)
