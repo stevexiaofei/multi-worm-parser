@@ -56,6 +56,8 @@ class Singleout_net(object):
 		self.model_path = os.path.join(cfg['exp_name'],'checkpoint')
 		self.saver = tf.train.Saver(restore_var)
 		self.saver_all= tf.train.Saver()
+		init_op = tf.global_variables_initializer()
+		self.sess.run(init_op)
 	def build_model(self):
 		self.input_image = tf.placeholder(tf.float32,
                                         [None, self.image_size, self.image_size,
@@ -139,8 +141,7 @@ class Singleout_net(object):
 			g_optim = tf.train.AdamOptimizer(cfg['lr'], beta1=cfg['beta1']) \
 							   .minimize(self.g_loss, var_list=self.de_vars)		
 						   
-		init_op = tf.global_variables_initializer()
-		self.sess.run(init_op)
+		
 		best_acc = 0.
 		if cfg['pre_train']:
 			for i in range(1000):
@@ -193,6 +194,26 @@ class Singleout_net(object):
 		if self.cfg['use_mid_supervise']:
 			feed[self.midout_image]= midout_image_batch
 		return feed
+	def single_out(self,image_batch):
+		image_batch -= np.amin(image_batch)
+		image_batch /= np.amax(image_batch)
+		image_batch = image_batch[...,np.newaxis]
+		num = len(image_batch)
+		num_batch = num//4
+		remain = num%4
+		output_image=[]
+		self.load()
+		for i in range(num_batch):
+			output_image_batch = self.sess.run(self.output,feed_dict={self.input_image:image_batch[i*4:(i+1)*4]})
+			#print(np.unique(output_image_batch))
+			output_image += list(output_image_batch)
+		#print(output_image[0].shape)
+		for i in range(len(output_image)):
+			save_image= np.squeeze(output_image[i])
+			save_image-= np.amin(save_image)
+			save_image /=np.amax(save_image)
+			save_image = save_image*255
+			cv2.imwrite('singleout_image\\image_patch_{}.jpg'.format(i),save_image.astype(np.uint8))
 	def sampler(self,epoch,idx):
 		mini_batch = self.data_provider(self.batch_size)
 		feed = self.get_minibatch(mini_batch)

@@ -3,10 +3,14 @@ import os
 import scipy.misc
 import numpy as np
 import math
-from model import pix2pix
-from dataprovider import gene
+from utils import process_config
+from model import Singleout_net
+
+from dataprovider import data_provider
 import cv2
 import tensorflow as tf
+cfg= process_config('exp1//config.cfg')
+gene = data_provider(cfg)
 Color_list=[(220,20,60),(255,0,255),(138,43,226),(0,0,255),(240,248,255),
 (0,255,255),(0,255,127),(0,255,0),(255,255,0),(255,165,0),
 (255,69,0),(128,0,0),(255,255,255),(188,143,143)]
@@ -24,9 +28,9 @@ class parser_worm_image:
 	def __init__(self):
 		self.direction_vectors= sample_vector(8,4)
 		self.sess=tf.Session()
-		self.model = pix2pix(self.sess, gene,image_size=args.fine_size, batch_size=args.batch_size,
-                        output_size=args.fine_size, dataset_name=args.dataset_name,
-                        checkpoint_dir=args.checkpoint_dir, sample_dir=args.sample_dir)
+		self.model = Singleout_net(self.sess,cfg,gene,image_size=cfg['fine_size'], batch_size=cfg['batch_size'],
+                   output_size=cfg['fine_size'], dataset_name=cfg['dataset_name'],
+                        checkpoint_dir=cfg['checkpoint_dir'], sample_dir=cfg['sample_dir'])
 	def parser_image(self,img):
 		sample_point_list=self.generate_seed_points(img)
 		plot_img,image_patch = self.get_image_patch(img,sample_point_list)
@@ -35,13 +39,13 @@ class parser_worm_image:
 		cv2.imwrite("mask.jpg",plot_img)
 		for i in range(len(image_patch)):
 			cv2.imwrite('image_patch\\image_patch_{}.jpg'.format(i),image_patch[i])
-		cv2.imshow('bs',plot_img)
-		k = cv2.waitKey(0) 
-		if k == 27:
-			cv2.destroyAllWindows()
-		print(image_patch.dtype)
+		# cv2.imshow('bs',plot_img)
+		# k = cv2.waitKey(0) 
+		# if k == 27:
+			# cv2.destroyAllWindows()
+		print(image_patch.dtype,image_patch.shape)
 		print(np.unique(image_patch[0]))
-		self.model.single_out(image_patch)
+		self.model.single_out(image_patch.astype(np.float32))
 	def get_image_patch(self,img,center_points_list):
 		h,w = img.shape
 		plot_img=np.stack([img,img,img],axis=2)
