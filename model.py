@@ -43,6 +43,8 @@ class Singleout_net(object):
 		self.d_bn1 = batch_norm(name='d_bn1')
 		self.d_bn2 = batch_norm(name='d_bn2')
 		self.d_bn3 = batch_norm(name='d_bn3')
+		self.d_bn4 = batch_norm(name='d_bn4')
+		self.d_bn5 = batch_norm(name='d_bn5')
 		
 		self.input_c_dim = input_c_dim
 		self.output_c_dim = output_c_dim
@@ -141,7 +143,8 @@ class Singleout_net(object):
 			g_optim = tf.train.AdamOptimizer(cfg['lr'], beta1=cfg['beta1']) \
 							   .minimize(self.g_loss, var_list=self.de_vars)		
 						   
-		
+		init_op = tf.global_variables_initializer()
+		self.sess.run(init_op)
 		best_acc = 0.
 		if cfg['pre_train']:
 			for i in range(1000):
@@ -203,17 +206,24 @@ class Singleout_net(object):
 		remain = num%4
 		output_image=[]
 		self.load()
+		prob_list = []
+		print('num_batch',num_batch)
 		for i in range(num_batch):
 			output_image_batch = self.sess.run(self.output,feed_dict={self.input_image:image_batch[i*4:(i+1)*4]})
-			#print(np.unique(output_image_batch))
+			if self.cfg['use_gan']:
+				prob =self.sess.run(self.D_, feed_dict={self.input_image:image_batch[i*4:(i+1)*4]} )
+				#print(prob,len(prob),len(image_batch[i*4:(i+1)*4]))
+				prob_list+=list(prob)
 			output_image += list(output_image_batch)
-		#print(output_image[0].shape)
+		print(len(prob_list))
 		for i in range(len(output_image)):
 			save_image= np.squeeze(output_image[i])
 			save_image-= np.amin(save_image)
 			save_image /=np.amax(save_image)
 			save_image = save_image*255
 			cv2.imwrite('singleout_image\\image_patch_{}.jpg'.format(i),save_image.astype(np.uint8))
+		# for i, it in enumerate(prob_list):
+			# print(i,it)
 	def sampler(self,epoch,idx):
 		mini_batch = self.data_provider(self.batch_size)
 		feed = self.get_minibatch(mini_batch)
@@ -276,11 +286,16 @@ class Singleout_net(object):
 			# h1 is (64 x 64 x self.df_dim*2)
 			h2 = lrelu(self.d_bn2(conv2d(h1, self.df_dim*4, name='d_h2_conv')))
 			# h2 is (32x 32 x self.df_dim*4)
-			h3 = lrelu(self.d_bn3(conv2d(h2, self.df_dim*8, d_h=1, d_w=1, name='d_h3_conv')))
-			# h3 is (16 x 16 x self.df_dim*8)
-			h4 = linear(tf.reshape(h3, [self.batch_size, -1]), 1, 'd_h3_lin')
-		return tf.nn.sigmoid(h4), h4
+			h3 = lrelu(self.d_bn3(conv2d(h2, self.df_dim*8, name='d_h3_conv')))
+			# h3 is (16x 16 x self.df_dim*8)
+			h4 = lrelu(self.d_bn4(conv2d(h3, self.df_dim*8, name='d_h4_conv')))
+			h5 = lrelu(self.d_bn5(conv2d(h4, self.df_dim*8, name='d_h5_conv')))
+			# h3 is (4 x 4 x self.df_dim*8)
+			#print('h5 ',h5.get_shape())
+			h6 = linear(tf.reshape(h5, [-1, 8192]), 1, 'd_h3_lin')
+		return tf.nn.sigmoid(h6), h6
 	def decoder(self,input):
+		self.upside_layers=[]
 		with tf.variable_scope('de_decoder_upside'):
 			num_filters= 256
 			for i in range(1,7):
@@ -291,6 +306,7 @@ class Singleout_net(object):
 				if i<= self.cfg['dropout_layers']:
 					pool= tf.nn.dropout(pool, 0.5)
 				num_filters = num_filters/2
+				self.upside_layers.append(pool)
 				input = pool
 
 		with tf.variable_scope('de_decoder_pixelCNN'):
@@ -319,7 +335,7 @@ class Singleout_net(object):
 			_out =tf.pad(h_stack_in, [[0,0],[1,1],[1,1],[0,0]], name='pad1')
 			out= self._conv(_out, self.output_c_dim, kernel_size=3, strides=1, pad = 'VALID', name= 'conv') 
 			if self.cfg['use_mid_supervise']:
-				mid_out = tf.pad(pool_5,[[0,0],[1,1],[1,1],[0,0]], name='pad2')#todo
+				mid_out = tf.pad(self.upside_layers[3],[[0,0],[1,1],[1,1],[0,0]], name='pad2')#todo
 				mid_out = self._conv(mid_out, self.output_c_dim, kernel_size=3, strides=1, pad = 'VALID', name= 'mid_out')
 		if self.cfg['use_mid_supervise']:
 			return tf.nn.sigmoid(out),tf.nn.sigmoid(mid_out)

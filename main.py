@@ -7,7 +7,7 @@ from model import Singleout_net
 from dataprovider import data_provider
 import tensorflow as tf
 from utils import process_config
-cfg= process_config('exp1//config.cfg')
+cfg= process_config('exp6//config.cfg')
 gene = data_provider(cfg)
 def main(_):
     if not os.path.exists(os.path.join(cfg['exp_name'],'checkpoint')):

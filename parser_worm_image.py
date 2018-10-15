@@ -9,7 +9,7 @@ from model import Singleout_net
 from dataprovider import data_provider
 import cv2
 import tensorflow as tf
-cfg= process_config('exp1//config.cfg')
+cfg= process_config('exp6//config.cfg')
 gene = data_provider(cfg)
 Color_list=[(220,20,60),(255,0,255),(138,43,226),(0,0,255),(240,248,255),
 (0,255,255),(0,255,127),(0,255,0),(255,255,0),(255,165,0),
@@ -37,6 +37,7 @@ class parser_worm_image:
 		for i,it in enumerate(sample_point_list[:14]):
 			cv2.circle(plot_img,tuple(it),2,Color_list[i%14],-1)
 		cv2.imwrite("mask.jpg",plot_img)
+		np.savez('center_points.npz',cps=sample_point_list)
 		for i in range(len(image_patch)):
 			cv2.imwrite('image_patch\\image_patch_{}.jpg'.format(i),image_patch[i])
 		# cv2.imshow('bs',plot_img)
@@ -100,10 +101,11 @@ class parser_worm_image:
 				index =dist_list.index(max(dist_list))
 				sample_point_list.append(circle_points[index])
 		return sample_point_list
-		
-img =cv2.imread('ab1.jpg',0)
-_,img= cv2.threshold(img,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-Parser=parser_worm_image()
-Parser.parser_image(img)
+	
+if __name__=='__main__':
+	img =cv2.imread('ab1.jpg',0)
+	_,img= cv2.threshold(img,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+	Parser=parser_worm_image()
+	Parser.parser_image(img)
 
 
